@@ -8,41 +8,11 @@ import random
 import copy
 from math import exp, sin
 import matplotlib as mpl
-def identical(x):
-    return x
-
-def dIdentical(x):
-    return 1
-
-def ReLU(x):
-    return max(0, x)
-
-def dReLU(x):
-    if x > 0:
-        return 1
-    else:
-        return 0
-    
-def threshold(x):
-    if x > 0.2:
-        return 1
-    return 0
-
-def dThreshold(x):
-    # is just to have some function when we train the network
-    return 1
-
-def sigmoid(x):
-    return (1.0  /(1.0 + exp(-x)))
-
-def dSigmoid(x):
-    return x * (1.0 - x)
-
 def linearFct(x):
-    return -x+5
+    return -1/18*x
 
 def dlinearFct(x):
-    return -1
+    return -1/18
 
 
 def identical(x):
@@ -53,7 +23,7 @@ class Neuron:
         self.noOfInputs = noOfInputs
         self.activationFct = activationFct
         self.weights = [random.random() for i in range(self.noOfInputs)]
-        self.outputs = 0
+        self.output = 0
     
     def setWeights(self, newWeights):
         self.weights = newWeights
@@ -65,7 +35,7 @@ class Neuron:
         return self.output
     
     def __str__(self):
-        return str(self.weights)
+        return "Weights: " + str(self.weights)
     
 class Layer:
     def __init__(self, noOfInputs, activationFct, noOfNeurons):
@@ -76,7 +46,7 @@ class Layer:
         for neuron in self.neurons:
             
             neuron.fireNeuron(inputs)
-        return([neuron.outputs for neuron in self.neurons])
+        return([neuron.output for neuron in self.neurons])
     
     def __str__(self):
         s = ''
@@ -115,18 +85,19 @@ class Network:
             self.signal.append(1)
         for layer in self.layers:
             self.signal = layer.forwardFct(self.signal)
+        
         return self.signal
     
     def backPropag(self, loss, learningRate):
         error = loss[:]
         delta = []
-        currentLayer = self.noOfLayers-1
-        newNetwork = Network(self.structure, self.activationFct, self.derivative, self.bias)
         
-        for i in range(self.structure[-1]):
+        newNetwork = Network(self.structure, self.activationFct, self.derivative, self.bias)
+        noOfNeuronsForLastLayer = self.structure[-1]
+        for i in range(noOfNeuronsForLastLayer):
             delta.append(error[i]*self.derivative(self.layers[-1].neurons[i].output))
-            for r in range(self.structure[currentLayer-1]):
-                newNetwork.layers[-1].neurons[i].weights[r] = self.layers[-1].neurons[i].weights[r] + learningRate*delta[i]*self.layers[currentLayer-1].neurons[r].output
+            for r in range(self.structure[self.noOfLayers-2]):
+                newNetwork.layers[-1].neurons[i].weights[r] = self.layers[-1].neurons[i].weights[r] + learningRate*delta[i]*self.layers[self.noOfLayers-2].neurons[r].output
                 
         for currentLayer in range(self.noOfLayers-2, 0, -1):
             currentDelta = []
@@ -138,17 +109,18 @@ class Network:
                     newNetwork.layers[currentLayer].neurons[i].weights[r] = self.layers[currentLayer].neurons[i].weights[r] + learningRate * delta[i] * self.layers[currentLayer-1].neurons[r].output
         self.layers = copy.deepcopy(newNetwork.layers)
         
-    def computeLoss(self, x, y):
+    def computeLoss(self, inputs, realoutput):
         loss = []
-        output = self.feedForward(x)
-        for i in range(len(y)):
-            loss.append(x[i] - output[i])
+        output = self.feedForward(inputs)
+        for i in range(len(realoutput)):
+            loss.append(inputs[i] - output[i])
         return loss[:]
     
     def __str__(self):
         s = ''
         for i in range(self.noOfLayers):
-            s += ' l '+str(i)+' :'+str(self.layers[i])
+            print(self.noOfLayers)
+            s += ' layer:  '+str(i)+' :'+str(self.layers[i])
         return s
     
 class Controller:
@@ -175,7 +147,7 @@ class Controller:
                     x_i.append(float(DS[i]))
                 self.__output.append([float(DS[5])])
                 self.__input.append(x_i)
-            self.__network = Network([5,4,1], ReLU, dReLU)
+            self.__network = Network([5,6,1], linearFct, dlinearFct)
         
         f.close()
         
@@ -190,15 +162,13 @@ class Controller:
                 e.append(self.__network.computeLoss(self.__input[j],self.__output[j])[0])
                 self.__network.backPropag(self.__network.computeLoss(self.__input[j],self.__output[j]), 0.01)
             errors.append(sum([x**2 for x in e]))
-        for j in range(len(self.__input)):
-            self.__network.feedForward(self.__input[j])
-            print(self.__input[j], self.__output[j], self.__network.feedForward(self.__input[j]))
-        #print(str(self.__network))
-        mpl.pyplot.plot(iterations, errors, label='loss value vs iteration')
+        
+        print(str(self.__network))
+        mpl.pyplot.plot(iterations, errors)
         mpl.pyplot.xlabel('Iterations')
-        mpl.pyplot.ylabel('loss function')
-        mpl.pyplot.legend()
+        mpl.pyplot.ylabel('Error')
         mpl.pyplot.show()
         
+
 c = Controller("data2.txt")
 c.trainNetwork()
